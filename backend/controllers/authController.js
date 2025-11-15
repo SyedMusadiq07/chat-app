@@ -1,16 +1,14 @@
-//step1: send otp
-const User = require("../models/userModel");
-
+const User = require("../models/User.js");
 const otpGenerate = require("../utils/otpGenerator");
 const response = require("../utils/responseHandler");
 const { sendOtpToEmail } = require("../services/emailService.js");
 const {
   sendOtpToPhoneNumber,
-  verifyOtp,
+  verifyOtpTwilio,
 } = require("../services/twilioService.js");
-const { use } = require("react");
 const generateToken = require("../utils/generateToken.js");
 
+//step1: send otp
 const sendOtp = async (req, res) => {
   const { phoneNumber, phoneSuffix, email } = req.body;
   const otp = otpGenerate();
@@ -40,10 +38,16 @@ const sendOtp = async (req, res) => {
       user = new User({ phoneNumber, phoneSuffix });
     }
 
-    sendOtpToPhoneNumber(fullPhoneNumber);
-
-    await user.save();
-    return response(res, 200, "OTP sent to your phone", user);
+    try {
+      await sendOtpToPhoneNumber(fullPhoneNumber);
+      await user.save();
+      return response(res, 200, "OTP sent to your phone", user);
+    } catch (twilioError) {
+      if (twilioError.code === 21608) {
+        return response(res, 403, "Phone number must be verified in Twilio console for trial accounts");
+      }
+      throw twilioError;
+    }
   } catch (error) {
     console.error("Error in sendOtp:", error);
     return response(res, 500, "Internal Server Error");
@@ -85,7 +89,7 @@ const verifyOtp = async (req, res) => {
       if (!user) {
         return response(res, 404, "User not found");
       }
-      const verificationResponse = await verifyOtp(fullPhoneNumber, otp);
+      const verificationResponse = await verifyOtpTwilio(fullPhoneNumber, otp);
       if (verificationResponse.status !== "approved") {
         return response(res, 400, "Invalid OTP");
       }

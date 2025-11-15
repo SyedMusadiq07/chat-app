@@ -1,11 +1,11 @@
 const twilio = require("twilio");
 
 // Load environment variables
-const accontSid = process.env.TWILIO_ACCOUNT_SID;
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const serviceSid = process.env.TWILIO_SERVICE_SID;
 
-const client = twilio(accontSid, authToken);
+const client = twilio(accountSid, authToken);
 
 // Function to send OTP
 const sendOtpToPhoneNumber = async (phoneNumber) => {
@@ -15,7 +15,7 @@ const sendOtpToPhoneNumber = async (phoneNumber) => {
       throw new Error("Phone number is required");
     }
 
-    const response = await client.verify
+    const response = await client.verify.v2
       .services(serviceSid)
       .verifications.create({ to: phoneNumber, channel: "sms" });
 
@@ -23,18 +23,22 @@ const sendOtpToPhoneNumber = async (phoneNumber) => {
     return response;
   } catch (error) {
     console.error("Error sending OTP:", error);
+    if (error.code === 21608) {
+      const verificationError = new Error("Phone number must be verified in Twilio console for trial accounts. Visit: https://www.twilio.com/console/phone-numbers/verified");
+      verificationError.code = 21608;
+      throw verificationError;
+    }
     throw new Error("Failed to send OTP");
   }
 };
 
-
-const verifyOtp = async (phoneNumber, otp) => {
+const verifyOtpTwilio = async (phoneNumber, otp) => {
   try {
-    console.log("this is phone number and otp", phoneNumber, otp);
+    console.log("Verifying phone number and OTP:", phoneNumber, otp);
     if (!phoneNumber || !otp) {
       throw new Error("Phone number and OTP are required");
     }
-    const response = await client.verify
+    const response = await client.verify.v2
       .services(serviceSid)
       .verificationChecks.create({ to: phoneNumber, code: otp });
 
@@ -48,5 +52,5 @@ const verifyOtp = async (phoneNumber, otp) => {
 
 module.exports = {
   sendOtpToPhoneNumber,
-  verifyOtp,
+  verifyOtpTwilio,
 };
