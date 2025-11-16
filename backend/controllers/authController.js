@@ -8,6 +8,7 @@ const {
 } = require("../services/twilioService.js");
 const generateToken = require("../utils/generateToken.js");
 const { uploadFileToCloudinary } = require("../config/cloudinaryConfig.js");
+const Conversation = require("../models/Conversation.js");
 
 //step1: send otp
 const sendOtp = async (req, res) => {
@@ -176,9 +177,41 @@ const checkAuthenticated = async (req, res) => {
       return response(res, 404, "User not found");
     }
     return response(res, 200, "User is authenticated", { user });
-
   } catch (error) {
     console.error("Error in checkAuthenticated:", error);
+    return response(res, 500, "Internal Server Error");
+  }
+};
+
+// make this except logged in user ?
+const getAllUsers = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const users = await User.find({ _id: { $ne: userId } })
+      .select(
+        "username  profilePicture   lastSeen isOnline about  phoneNumber phoneSuffix"
+      )
+      .lean();
+
+    //find there last conversation
+    const userWithConversation = await Promise.all(
+      users.map(async (user) => {
+        const conversation = await Conversation.findOne({
+          participants: { $all: [userId, user._id] },
+        }).populate({
+          path: "lastMessage",
+          select: "content createdAt sender receiver",
+        }).lean();
+        return {
+          ...user,
+          conversation: conversation || null,
+        };
+      })
+    );
+
+    return response(res, 200, "Users fetched successfully", userWithConversation);
+  } catch (error) {
+    console.error("Error in getAllUsers:", error);
     return response(res, 500, "Internal Server Error");
   }
 };
@@ -189,4 +222,5 @@ module.exports = {
   updateProfile,
   logout,
   checkAuthenticated,
+  getAllUsers,
 };
