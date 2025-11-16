@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
     phoneNumber: {
         type: String,
-
         unique: true,
         sparse: true, 
     },
@@ -49,6 +48,10 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     }, 
+    username: {
+        type: String,
+        required: false,
+    },
 
 }, { timestamps: true });
 
